@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Hybrid Retrieval System</title>
+
+    <style>
+        :root {
+            --bg: #121212;
+            --bg-card: #1e1e1e;
+            --accent: #2b6ef5;
+            --accent-hover: #1e54c6;
+            --border-subtle: #333;
+            --text-main: #e0e0e0;
+            --text-muted: #aaaaaa;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0;
+            background-color: var(--bg);
+            color: var(--text-main);
+        }
+
+        /* ---------------------- Navbar ---------------------- */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #1f1f1f;
+            padding: 14px 32px;
+            box-shadow: 0px 2px 6px rgba(0,0,0,0.6);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .navbar-title {
+            margin: 0;
+            font-size: 20px;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .navbar-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+        }
+
+        .tab-btn {
+            color: #aaa;
+            cursor: pointer;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 14px;
+            transition: 0.25s;
+            user-select: none;
+        }
+
+        .tab-btn:hover {
+            color: #fff;
+            background-color: #333;
+        }
+
+        .active-tab {
+            background-color: var(--accent);
+            color: white !important;
+        }
+
+        /* ---------------------- Tab Content ---------------------- */
+        .tab-content {
+            display: none;
+            padding: 24px 32px 40px;
+        }
+
+        .show {
+            display: block;
+        }
+
+        h2 {
+            color: #fff;
+            margin-bottom: 8px;
+        }
+
+        .tab-description {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 18px;
+        }
+
+        /* ---------------------- Cards ---------------------- */
+        .card {
+            background-color: var(--bg-card);
+            padding: 18px 20px;
+            border-radius: 12px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.4);
+            margin-top: 16px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            margin-bottom: 4px;
+            color: #ffffff;
+        }
+
+        .card-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+
+        /* ---------------------- Inputs ---------------------- */
+        input, textarea {
+            width: 100%;
+            background-color: #2b2b2b;
+            border: 1px solid #444;
+            color: #eee;
+            padding: 9px 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            resize: vertical;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px rgba(43,110,245,0.6);
+        }
+
+        label {
+            font-size: 13px;
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        button {
+            background-color: var(--accent);
+            border: none;
+            color: white;
+            padding: 9px 16px;
+            border-radius: 999px;
+            cursor: pointer;
+            margin-top: 6px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        pre {
+            background-color: #000;
+            padding: 12px 14px;
+            border-radius: 8px;
+            color: #b5ffb8;
+            white-space: pre-wrap;
+            margin-top: 12px;
+            max-height: 320px;
+            overflow-y: auto;
+            font-size: 12px;
+            border: 1px solid #333;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+    </style>
+
+    <script>
+        /* ---------------------- Tabs ---------------------- */
+        function openTab(tabName) {
+            let tabs = document.getElementsByClassName("tab-content");
+            for (let t of tabs) t.classList.remove("show");
+
+            let btns = document.getElementsByClassName("tab-btn");
+            for (let b of btns) b.classList.remove("active-tab");
+
+            document.getElementById(tabName).classList.add("show");
+            document.getElementById("btn-" + tabName).classList.add("active-tab");
+        }
+
+        /* ---------------------- Helpers ---------------------- */
+        async function postJSON(url, data) {
+            try {
+                const res = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) {
+                    return { error: `HTTP ${res.status}: ${res.statusText}` };
+                }
+                return await res.json();
+            } catch (err) {
+                return { error: err.toString() };
+            }
+        }
+
+        async function getJSON(url) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) {
+                    return { error: `HTTP ${res.status}: ${res.statusText}` };
+                }
+                return await res.json();
+            } catch (err) {
+                return { error: err.toString() };
+            }
+        }
+
+        async function putJSON(url, data) {
+            try {
+                const res = await fetch(url, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+                return await res.json();
+            } catch (err) {
+                return { error: err.toString() };
+            }
+        }
+
+        async function deleteReq(url) {
+            try {
+                const res = await fetch(url, { method: "DELETE" });
+                return await res.json();
+            } catch (err) {
+                return { error: err.toString() };
+            }
+        }
+
+        /* ---------------------- Vector ---------------------- */
+        async function runVector() {
+            const out = await postJSON("http://127.0.0.1:8000/search/vector", {
+                query_text: document.getElementById("vec_query").value,
+                top_k: parseInt(document.getElementById("vec_topk").value)
+            });
+            document.getElementById("vec_out").textContent = JSON.stringify(out, null, 2);
+        }
+
+        /* ---------------------- Graph ---------------------- */
+        async function runGraph() {
+            const id = document.getElementById("graph_id").value;
+            const depth = document.getElementById("graph_depth").value;
+
+            if (!id) {
+                document.getElementById("graph_out").textContent = "Error: Please enter a start node ID";
+                return;
+            }
+
+            const url = `http://127.0.0.1:8000/search/graph?start_id=${id}&depth=${depth}`;
+            try {
+                const out = await getJSON(url);
+                console.log("Graph response:", out);
+                document.getElementById("graph_out").textContent = JSON.stringify(out, null, 2);
+            } catch (err) {
+                console.error("Graph search error:", err);
+                document.getElementById("graph_out").textContent = `Error: ${err.toString()}`;
+            }
+        }
+
+        /* ---------------------- Hybrid ---------------------- */
+        async function runHybrid() {
+            const query = document.getElementById("hyb_query").value;
+            const topk = parseInt(document.getElementById("hyb_topk").value);
+            const alpha = parseFloat(document.getElementById("hyb_alpha").value);
+            const focusVal = document.getElementById("hyb_focus").value;
+            const depth = parseInt(document.getElementById("hyb_depth").value);
+
+            if (!query) {
+                document.getElementById("hyb_out").textContent = "Error: Please enter a query";
+                return;
+            }
+
+            const payload = {
+                query_text: query,
+                top_k: topk,
+                alpha: alpha,
+                bfs_depth: depth,
+                focus_id: focusVal ? parseInt(focusVal) : null
+            };
+
+            try {
+                const out = await postJSON("http://127.0.0.1:8000/search/hybrid", payload);
+                console.log("Hybrid response:", out);
+                document.getElementById("hyb_out").textContent = JSON.stringify(out, null, 2);
+            } catch (err) {
+                console.error("Hybrid search error:", err);
+                document.getElementById("hyb_out").textContent = `Error: ${err.toString()}`;
+            }
+        }
+
+        /* ---------------------- Node CRUD ---------------------- */
+        async function createNode() {
+            const name = document.getElementById("n_name").value;
+            const text = document.getElementById("n_text").value;
+            const metaRaw = document.getElementById("n_meta").value;
+
+            let metadata = {};
+            try { metadata = metaRaw ? JSON.parse(metaRaw) : {}; } catch (e) {}
+
+            const out = await postJSON("http://127.0.0.1:8000/nodes", {
+                name, text, metadata
+            });
+            document.getElementById("n_create_out").textContent = JSON.stringify(out, null, 2);
+        }
+
+        async function readNode() {
+            const id = document.getElementById("n_read_id").value;
+            const out = await getJSON(`http://127.0.0.1:8000/nodes/${id}`);
+            document.getElementById("n_read_out").textContent = JSON.stringify(out, null, 2);
+        }
+
+        async function updateNode() {
+            const id = document.getElementById("n_update_id").value;
+            const name = document.getElementById("n_update_name").value;
+            const text = document.getElementById("n_update_text").value;
+            const metaRaw = document.getElementById("n_update_meta").value;
+
+            let body = {};
+            if (name) body.name = name;
+            if (text) body.text = text;
+
+            if (metaRaw) {
+                try { body.metadata = JSON.parse(metaRaw); } catch (e) {}
+            }
+
+            const out = await putJSON(`http://127.0.0.1:8000/nodes/${id}`, body);
+            document.getElementById("n_update_out").textContent = JSON.stringify(out, null, 2);
+        }
+
+        async function deleteNode() {
+            const id = document.getElementById("n_delete_id").value;
+            const out = await deleteReq(`http://127.0.0.1:8000/nodes/${id}`);
+            document.getElementById("n_delete_out").textContent = JSON.stringify(out, null, 2);
+        }
+
+        /* ---------------------- Edge CRUD ---------------------- */
+        async function createEdge() {
+            const src = parseInt(document.getElementById("e_src").value);
+            const tgt = parseInt(document.getElementById("e_tgt").value);
+            const type = document.getElementById("e_type").value;
+            const weight = parseFloat(document.getElementById("e_weight").value);
+
+            const out = await postJSON("http://127.0.0.1:8000/edges", {
+                source: src, target: tgt, type, weight
+            });
+            document.getElementById("e_create_out").textContent = JSON.stringify(out, null, 2);
+        }
+
+        async function readEdge() {
+            const id = document.getElementById("e_read_id").value;
+            const out = await getJSON(`http://127.0.0.1:8000/edges/${id}`);
+            document.getElementById("e_read_out").textContent = JSON.stringify(out, null, 2);
+        }
+
+        async function deleteEdge() {
+            const id = document.getElementById("e_delete_id").value;
+            const out = await deleteReq(`http://127.0.0.1:8000/edges/${id}`);
+            document.getElementById("e_delete_out").textContent = JSON.stringify(out, null, 2);
+        }
+    </script>
+</head>
+
+<body onload="openTab('vector')">
+
+<!-- NAVBAR -->
+<div class="navbar">
+    <div>
+        <div class="navbar-title">Hybrid Retrieval System</div>
+        <div class="navbar-sub">Vector + Graph Native Database • Local FastAPI + Embeddings</div>
+    </div>
+    <div class="tabs">
+        <div class="tab-btn" id="btn-vector" onclick="openTab('vector')">Vector</div>
+        <div class="tab-btn" id="btn-graph" onclick="openTab('graph')">Graph</div>
+        <div class="tab-btn" id="btn-hybrid" onclick="openTab('hybrid')">Hybrid</div>
+        <div class="tab-btn" id="btn-crud" onclick="openTab('crud')">CRUD</div>
+    </div>
+</div>
+
+<!-- VECTOR TAB -->
+<div id="vector" class="tab-content">
+    <h2>Vector Search</h2>
+    <div class="tab-description">
+        Semantic search using sentence embeddings + cosine similarity.
+    </div>
+    <div class="card">
+        <div class="card-title">Query</div>
+        <div class="card-subtitle">Enter any natural language text and get nearest nodes in vector space.</div>
+
+        <label>Query text</label>
+        <input id="vec_query" placeholder="e.g. electric pokemon, paris landmark, redis caching...">
+
+        <label>Top K results</label>
+        <input id="vec_topk" type="number" value="5">
+
+        <button onclick="runVector()">Run Vector Search</button>
+
+        <pre id="vec_out">{ vector results appear here }</pre>
+    </div>
+</div>
+
+<!-- GRAPH TAB -->
+<div id="graph" class="tab-content">
+    <h2>Graph Search</h2>
+    <div class="tab-description">
+        Graph traversal over nodes + relationships. Uses BFS with depth limit.
+    </div>
+    <div class="card">
+        <div class="card-title">Breadth-First Traversal</div>
+        <div class="card-subtitle">Inspect how nodes are connected via edges.</div>
+
+        <label>Start Node ID</label>
+        <input id="graph_id" placeholder="e.g. 25">
+
+        <label>Depth (hops)</label>
+        <input id="graph_depth" type="number" value="2">
+
+        <button onclick="runGraph()">Run Graph Traversal</button>
+
+        <pre id="graph_out">{ graph traversal results here }</pre>
+    </div>
+</div>
+
+<!-- HYBRID TAB -->
+<div id="hybrid" class="tab-content">
+    <h2>Hybrid Search</h2>
+    <div class="tab-description">
+        Combines vector similarity and graph proximity into a single hybrid score.
+    </div>
+    <div class="card">
+        <div class="card-title">Hybrid Retrieval</div>
+        <div class="card-subtitle">
+            final_score = α * vector_score + (1 - α) * graph_score
+        </div>
+
+        <label>Query text</label>
+        <input id="hyb_query" placeholder="e.g. redis caching, evolution chain, paris tower...">
+
+        <label>Top K results</label>
+        <input id="hyb_topk" type="number" value="5">
+
+        <label>Vector weight α (0–1)</label>
+        <input id="hyb_alpha" type="number" step="0.1" value="0.7">
+
+        <label>Focus node ID (optional)</label>
+        <input id="hyb_focus" placeholder="If empty, uses top vector result as anchor">
+
+        <label>BFS depth</label>
+        <input id="hyb_depth" type="number" value="2">
+
+        <button onclick="runHybrid()">Run Hybrid Search</button>
+
+        <pre id="hyb_out">{ hybrid results appear here }</pre>
+    </div>
+</div>
+
+<!-- CRUD TAB -->
+<div id="crud" class="tab-content">
+    <h2>CRUD Dashboard</h2>
+    <div class="tab-description">
+        Manage nodes & edges in the vector+graph database. All operations hit the live FastAPI backend.
+    </div>
+
+    <div class="grid-2">
+        <!-- CREATE NODE -->
+        <div class="card">
+            <div class="card-title">Create Node</div>
+            <div class="card-subtitle">Creates a new node, embeds its text, and optionally triggers NLP edge extraction.</div>
+
+            <label>Node name</label>
+            <input id="n_name" placeholder="e.g. Eiffel Tower">
+
+            <label>Node text</label>
+            <textarea id="n_text" rows="4" placeholder="Description, facts, relationships in natural language..."></textarea>
+
+            <label>Metadata (JSON)</label>
+            <textarea id="n_meta" rows="3" placeholder='{"type":"landmark","city":"Paris"}'></textarea>
+
+            <button onclick="createNode()">Create Node</button>
+            <pre id="n_create_out">{ node creation output }</pre>
+        </div>
+
+        <!-- READ NODE -->
+        <div class="card">
+            <div class="card-title">Read Node</div>
+            <div class="card-subtitle">GET /nodes/{id} — including attached edges.</div>
+
+            <label>Node ID</label>
+            <input id="n_read_id" placeholder="e.g. 803">
+
+            <button onclick="readNode()">Read Node</button>
+            <pre id="n_read_out">{ node + edges }</pre>
+        </div>
+
+        <!-- UPDATE NODE -->
+        <div class="card">
+            <div class="card-title">Update Node</div>
+            <div class="card-subtitle">PUT /nodes/{id} — update text to regenerate embedding.</div>
+
+            <label>Node ID</label>
+            <input id="n_update_id" placeholder="e.g. 803">
+
+            <label>New name (optional)</label>
+            <input id="n_update_name" placeholder="Leave empty to keep same">
+
+            <label>New text (optional)</label>
+            <textarea id="n_update_text" rows="3" placeholder="New description..."></textarea>
+
+            <label>New metadata JSON (optional)</label>
+            <textarea id="n_update_meta" rows="3" placeholder='{"type":"landmark","country":"France"}'></textarea>
+
+            <button onclick="updateNode()">Update Node</button>
+            <pre id="n_update_out">{ update result }</pre>
+        </div>
+
+        <!-- DELETE NODE -->
+        <div class="card">
+            <div class="card-title">Delete Node</div>
+            <div class="card-subtitle">DELETE /nodes/{id} — cascades and removes associated edges.</div>
+
+            <label>Node ID</label>
+            <input id="n_delete_id" placeholder="e.g. 803">
+
+            <button onclick="deleteNode()">Delete Node</button>
+            <pre id="n_delete_out">{ delete result }</pre>
+        </div>
+
+        <!-- CREATE EDGE -->
+        <div class="card">
+            <div class="card-title">Create Edge</div>
+            <div class="card-subtitle">POST /edges — manually connect two nodes with a typed relationship.</div>
+
+            <label>Source node ID</label>
+            <input id="e_src" placeholder="e.g. 803">
+
+            <label>Target node ID</label>
+            <input id="e_tgt" placeholder="e.g. 804">
+
+            <label>Type</label>
+            <input id="e_type" value="related_to">
+
+            <label>Weight</label>
+            <input id="e_weight" type="number" value="1.0" step="0.1">
+
+            <button onclick="createEdge()">Create Edge</button>
+            <pre id="e_create_out">{ edge creation output }</pre>
+        </div>
+
+        <!-- READ EDGE -->
+        <div class="card">
+            <div class="card-title">Read Edge</div>
+            <div class="card-subtitle">GET /edges/{id}</div>
+
+            <label>Edge ID</label>
+            <input id="e_read_id" placeholder="e.g. 10">
+
+            <button onclick="readEdge()">Read Edge</button>
+            <pre id="e_read_out">{ edge details }</pre>
+        </div>
+
+        <!-- DELETE EDGE -->
+        <div class="card">
+            <div class="card-title">Delete Edge</div>
+            <div class="card-subtitle">DELETE /edges/{id}</div>
+
+            <label>Edge ID</label>
+            <input id="e_delete_id" placeholder="e.g. 10">
+
+            <button onclick="deleteEdge()">Delete Edge</button>
+            <pre id="e_delete_out">{ edge delete result }</pre>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
+

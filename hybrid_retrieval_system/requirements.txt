@@ -1,0 +1,6 @@
+Create this with exactly:
+fastapi
+uvicorn
+numpy
+nltk
+pydantic
